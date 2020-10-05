@@ -14,8 +14,8 @@ def Onion_Peeling_Tikhonov(ImRed, ImGrn, ImBlu, alpha):
     import matplotlib.pyplot as plt
     
     # Create file names and check if the BASEX matrix was already calculated
-    filename_A_OP = abspath( '{0}{1}{2}{3}{4}{5}'.format('Onion_Peeling_Tikhonov//Onion_Tik_A_OP_', str(len(ImRed)), 'x', str(len(ImRed[0])), '_alpha', str(alpha)))
-    filename_A_Tik = abspath( '{0}{1}{2}{3}{4}{5}'.format('Onion_Peeling_Tikhonov//Onion_Tik_A_Tik_', str(len(ImRed)), 'x', str(len(ImRed[0])), '_alpha', str(alpha)))
+    filename_A_OP = abspath( '{0}{1}{2}{3}{4}{5}'.format('Onion_Peeling_Tikhonov_matrices//Onion_Tik_A_OP_', str(len(ImRed)), 'x', str(len(ImRed[0])), '_alpha', str(alpha)))
+    filename_A_Tik = abspath( '{0}{1}{2}{3}{4}{5}'.format('Onion_Peeling_Tikhonov_matrices//Onion_Tik_A_Tik_', str(len(ImRed)), 'x', str(len(ImRed[0])), '_alpha', str(alpha)))
     filename_A_OP = ('{0}{1}'.format(filename_A_OP.replace('.','p'), '.csv'))
     filename_A_Tik = ('{0}{1}'.format(filename_A_Tik.replace('.','p'), '.csv'))
     

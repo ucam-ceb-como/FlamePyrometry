@@ -86,7 +86,9 @@ def BASEX(ImRed, ImGrn, ImBlu, sigma, qx):
     p2 = int(round(len(ImGrn)/3))
     plt.figure()
     plt.plot(P_grn[p1,:], 'r')
-    plt.plot(ImGrn[p1,:], 'xg')
+    plt.plot(ImGrn[p1,:], 'xr')
+    plt.plot(P_grn[p2,:], 'g')
+    plt.plot(ImGrn[p2,:], 'xg')
     plt.title('Example comparison between raw data (x) and smoothened BASEX (-)')
     plt.show()
     

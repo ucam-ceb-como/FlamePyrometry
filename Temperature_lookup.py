@@ -5,7 +5,7 @@ Created on Mon Dec 17 15:58:06 2018
 @author: jd766
 """
 
-def Temperature_lookup(filter, lam, T_calc, fit, Thermo_calib):
+def Temperature_lookup(filter, lam, T_calc, fit, Thermo_calib, soot_coef):
     from scipy.interpolate import griddata
     import scipy.integrate as integrate
     from scipy.optimize import curve_fit
@@ -16,12 +16,12 @@ def Temperature_lookup(filter, lam, T_calc, fit, Thermo_calib):
     import matplotlib.pyplot as plt
     
     if fit == True:
-        filename_lookup = abspath( '{0}{1}{2}{3}{4}{5}{6}{7}{8}{9}{10}{11}' \
-                          .format('Temperature_tables\T_lookup_', filter, '_lambda_', str(int(lam[0])), \
+        filename_lookup = abspath( '{0}{1}{2}{3}{4}{5}{6}{7}{8}{9}{10}{11}{12}{13}' \
+                          .format('Temperature_tables\T_lookup_', soot_coef, '_', filter, '_lambda_', str(int(lam[0])), \
                           '_', str(int(lam[-1])), '_T_', str(int(T_calc[0])), '_', str(int(T_calc[-1])), '_fitted', '.csv'))
     elif fit == False:
-        filename_lookup = abspath( '{0}{1}{2}{3}{4}{5}{6}{7}{8}{9}{10}' \
-                          .format('Temperature_tables\T_lookup_', filter, '_lambda_', str(int(lam[0])), \
+        filename_lookup = abspath( '{0}{1}{2}{3}{4}{5}{6}{7}{8}{9}{10}{12}{13}' \
+                          .format('Temperature_tables\T_lookup_', soot_coef, '_', filter, '_lambda_', str(int(lam[0])), \
                           '_', str(int(lam[-1])), '_T_', str(int(T_calc[0])), '_', str(int(T_calc[-1])), '.csv'))
     
     # Check if file already exists
@@ -44,10 +44,17 @@ def Temperature_lookup(filter, lam, T_calc, fit, Thermo_calib):
         lambda_first = (lam[0]*10)
         
         # Emission source is set soot
-        emissivity_soot = (lam*1e-3)**(-1.38)
-        
+        if soot_coef=='Chang':
+            alpha_soot = 1.423#(lam*1e-3)**(-1.38)
+            #emissivity_soot = 1.38#(lam*1e-3)**(-1.38)
+        elif soot_coef=='Kuhn':
+            alpha_soot = 1.38#(lam*1e-3)**(-0.785)
+        else:
+            sys.exit("Chosen soot emissivity not found. Please set soot_coef to available values.")
+            
         # Functions to calculate the colour ratios
-        emissivity_thermo = (1.2018e-6 * lam**2 - 1.7167e-3 * lam + 0.9017)
+        alpha_thermo = 0.641#(1.2018e-6 * lam**2 - 1.7167e-3 * lam + 0.9017)
+        #emissivity_thermo = 0.641#(1.2018e-6 * lam**2 - 1.7167e-3 * lam + 0.9017)
         
         # Get raw camera response
         blackfly_red = pd.read_csv('Filters/Blackfly_response_red.csv', delimiter=',', header=None).values
@@ -116,9 +123,9 @@ def Temperature_lookup(filter, lam, T_calc, fit, Thermo_calib):
         
         # Calculate theo. colour ratios as function of temperature for thermocouple
         for T in range(0, len(T_measure)):
-            fun_R_thermo[T] = integrate.quad(lambda l: S_fun_filter(T_measure[T],l,red_filter,lambda_first,emissivity_thermo), lam[0], lam[-1], maxp1=200, limit=200)[0]
-            fun_G_thermo[T] = integrate.quad(lambda l: S_fun_filter(T_measure[T],l,grn_filter,lambda_first,emissivity_thermo), lam[0], lam[-1], maxp1=200, limit=200)[0]
-            fun_B_thermo[T] = integrate.quad(lambda l: S_fun_filter(T_measure[T],l,blu_filter,lambda_first,emissivity_thermo), lam[0], lam[-1], maxp1=200, limit=200)[0]
+            fun_R_thermo[T] = integrate.quad(lambda l: S_fun_filter(T_measure[T],l,red_filter,lambda_first,alpha_thermo), lam[0], lam[-1], maxp1=200, limit=200)[0]
+            fun_G_thermo[T] = integrate.quad(lambda l: S_fun_filter(T_measure[T],l,grn_filter,lambda_first,alpha_thermo), lam[0], lam[-1], maxp1=200, limit=200)[0]
+            fun_B_thermo[T] = integrate.quad(lambda l: S_fun_filter(T_measure[T],l,blu_filter,lambda_first,alpha_thermo), lam[0], lam[-1], maxp1=200, limit=200)[0]
         
         RG_thermo = fun_R_thermo / fun_G_thermo
         RB_thermo = fun_R_thermo / fun_B_thermo
@@ -143,13 +150,13 @@ def Temperature_lookup(filter, lam, T_calc, fit, Thermo_calib):
             
             # Calculate theo. response of camera for soot and thermocouple using the corrected camera response
             for T in range(0, len(T_calc)):
-                cor_R_thermo[T] = integrate.quad(lambda l: S_fun_filter(T_calc[T],l,red_filter_Mod,lambda_first,emissivity_thermo), lam[0], lam[-1], maxp1=200, limit=200)[0]
-                cor_G_thermo[T] = integrate.quad(lambda l: S_fun_filter(T_calc[T],l,grn_filter_Mod,lambda_first,emissivity_thermo), lam[0], lam[-1], maxp1=200, limit=200)[0]
-                cor_B_thermo[T] = integrate.quad(lambda l: S_fun_filter(T_calc[T],l,blu_filter_Mod,lambda_first,emissivity_thermo), lam[0], lam[-1], maxp1=200, limit=200)[0]
+                cor_R_thermo[T] = integrate.quad(lambda l: S_fun_filter(T_calc[T],l,red_filter_Mod,lambda_first,alpha_thermo), lam[0], lam[-1], maxp1=200, limit=200)[0]
+                cor_G_thermo[T] = integrate.quad(lambda l: S_fun_filter(T_calc[T],l,grn_filter_Mod,lambda_first,alpha_thermo), lam[0], lam[-1], maxp1=200, limit=200)[0]
+                cor_B_thermo[T] = integrate.quad(lambda l: S_fun_filter(T_calc[T],l,blu_filter_Mod,lambda_first,alpha_thermo), lam[0], lam[-1], maxp1=200, limit=200)[0]
                 
-                fun_R_soot[T] = integrate.quad(lambda l: S_fun_filter(T_calc[T],l,red_filter_Mod,lambda_first,emissivity_soot), lam[0], lam[-1], maxp1=200, limit=200)[0]
-                fun_G_soot[T] = integrate.quad(lambda l: S_fun_filter(T_calc[T],l,grn_filter_Mod,lambda_first,emissivity_soot), lam[0], lam[-1], maxp1=200, limit=200)[0]
-                fun_B_soot[T] = integrate.quad(lambda l: S_fun_filter(T_calc[T],l,blu_filter_Mod,lambda_first,emissivity_soot), lam[0], lam[-1], maxp1=200, limit=200)[0]
+                fun_R_soot[T] = integrate.quad(lambda l: S_fun_filter(T_calc[T],l,red_filter_Mod,lambda_first,alpha_soot), lam[0], lam[-1], maxp1=200, limit=200)[0]
+                fun_G_soot[T] = integrate.quad(lambda l: S_fun_filter(T_calc[T],l,grn_filter_Mod,lambda_first,alpha_soot), lam[0], lam[-1], maxp1=200, limit=200)[0]
+                fun_B_soot[T] = integrate.quad(lambda l: S_fun_filter(T_calc[T],l,blu_filter_Mod,lambda_first,alpha_soot), lam[0], lam[-1], maxp1=200, limit=200)[0]
                 
             RG_thermo_cor = (cor_R_thermo / cor_G_thermo)
             RB_thermo_cor = (cor_R_thermo / cor_B_thermo)
@@ -161,7 +168,7 @@ def Temperature_lookup(filter, lam, T_calc, fit, Thermo_calib):
     
             # Calculate wavelength where the product of green camera response and soot emissivity has its maximum depending on the soot temperature
             for T in range(0, len(T_calc)):
-                grn_resp = S_fun_filter(T_calc[T],lam,grn_filter_Mod,lambda_first,emissivity_soot)
+                grn_resp = S_fun_filter(T_calc[T],lam,grn_filter_Mod,lambda_first,alpha_soot)
                 I_max = np.argmax(grn_resp)
                 lambda_max[T] = lam[I_max]
                
@@ -171,13 +178,13 @@ def Temperature_lookup(filter, lam, T_calc, fit, Thermo_calib):
             
             # Calculate theo. response of camera for soot
             for T in range(0, len(T_calc)):
-                cor_R_thermo[T] = integrate.quad(lambda l: S_fun_filter(T_calc[T],l,red_filter,lambda_first,emissivity_thermo), lam[0], lam[-1], maxp1=200, limit=200)[0]
-                cor_G_thermo[T] = integrate.quad(lambda l: S_fun_filter(T_calc[T],l,grn_filter,lambda_first,emissivity_thermo), lam[0], lam[-1], maxp1=200, limit=200)[0]
-                cor_B_thermo[T] = integrate.quad(lambda l: S_fun_filter(T_calc[T],l,blu_filter,lambda_first,emissivity_thermo), lam[0], lam[-1], maxp1=200, limit=200)[0]
+                cor_R_thermo[T] = integrate.quad(lambda l: S_fun_filter(T_calc[T],l,red_filter,lambda_first,alpha_thermo), lam[0], lam[-1], maxp1=200, limit=200)[0]
+                cor_G_thermo[T] = integrate.quad(lambda l: S_fun_filter(T_calc[T],l,grn_filter,lambda_first,alpha_thermo), lam[0], lam[-1], maxp1=200, limit=200)[0]
+                cor_B_thermo[T] = integrate.quad(lambda l: S_fun_filter(T_calc[T],l,blu_filter,lambda_first,alpha_thermo), lam[0], lam[-1], maxp1=200, limit=200)[0]
                 
-                fun_R_soot[T] = integrate.quad(lambda l: S_fun_filter(T_calc[T],l,red_filter,lambda_first,emissivity_soot), lam[0], lam[-1], maxp1=200, limit=200)[0]
-                fun_G_soot[T] = integrate.quad(lambda l: S_fun_filter(T_calc[T],l,grn_filter,lambda_first,emissivity_soot), lam[0], lam[-1], maxp1=200, limit=200)[0]
-                fun_B_soot[T] = integrate.quad(lambda l: S_fun_filter(T_calc[T],l,blu_filter,lambda_first,emissivity_soot), lam[0], lam[-1], maxp1=200, limit=200)[0]
+                fun_R_soot[T] = integrate.quad(lambda l: S_fun_filter(T_calc[T],l,red_filter,lambda_first,alpha_soot), lam[0], lam[-1], maxp1=200, limit=200)[0]
+                fun_G_soot[T] = integrate.quad(lambda l: S_fun_filter(T_calc[T],l,grn_filter,lambda_first,alpha_soot), lam[0], lam[-1], maxp1=200, limit=200)[0]
+                fun_B_soot[T] = integrate.quad(lambda l: S_fun_filter(T_calc[T],l,blu_filter,lambda_first,alpha_soot), lam[0], lam[-1], maxp1=200, limit=200)[0]
             
             RG_thermo_cor = (cor_R_thermo / cor_G_thermo)
             RB_thermo_cor = (cor_R_thermo / cor_B_thermo)
@@ -188,7 +195,7 @@ def Temperature_lookup(filter, lam, T_calc, fit, Thermo_calib):
             BG_soot = (fun_B_soot / fun_G_soot) 
                 
             for T in range(0, len(T_calc)):
-                grn_resp = S_fun_filter(T_calc[T],lam,grn_filter,lambda_first,emissivity_soot)
+                grn_resp = S_fun_filter(T_calc[T],lam,grn_filter,lambda_first,alpha_soot)
                 I_max = np.argmax(grn_resp)
                 lambda_max[T] = lam[I_max]
         

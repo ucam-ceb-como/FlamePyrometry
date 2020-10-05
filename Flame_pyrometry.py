@@ -17,11 +17,11 @@ import time
 # General parameters
 # Process new image or load old one? Available are 'Load' and '2-colour'.
 #If new image is processed check parameters in corresponding case structure
-load_image = '2-colour'
+load_image = 'Load'
 
 # Which method should be used for the inverse Abel transform? Available are 
 # BASEX, Onion_Peeling_Tikhonov, and FLiPPID. Check parameters in corresponding case structure. 
-# Note that FLiPPID will take around 35-60 min for the provided example image
+# Note that FLiPPID will take around 35-60 min for the provided example image.
 Abel = 'BASEX'
 
 # Get flame temperatures by comparing colour ratios to lookup table? Note that a temperature lookup table is 
@@ -31,6 +31,9 @@ get_temperature = True
 # Get soot volume fraction (only possible if get_temperature = True)?
 get_volume_fraction= True
 
+# Save the soot temperature, volume fraction, and, if FLiPPID was used, the fitting parameters?
+save = False
+
 # Filter used during the experiment and camera calibration. Options are 'nofilter', 'FGB7', and 'FGB39'. Others can be added in 
 # the function Temperature_lookup.
 filter = 'FGB7'
@@ -38,34 +41,41 @@ filter = 'FGB7'
 #------------------------------------------------------------------------------
 # Select flame image files and parameters for image processing
 #------------------------------------------------------------------------------
+
+
 if load_image == 'Load':
-        # Load processed image from file        
-        ImRed = np.genfromtxt('Photos//Processed//100H_BG7_exp1563_Red_Ave5.csv', delimiter=',')
-        ImGrn = np.genfromtxt('Photos//Processed//100H_BG7_exp1563_Grn_Ave5.csv', delimiter=',')
-        ImBlu = np.genfromtxt('Photos//Processed//100H_BG7_exp1563_Blu_Ave5.csv', delimiter=',')
-        
+    ImPathRed = 'Photos//Processed//100H_BG7_exp1563_Red_Ave5.csv'
+    ImPathGrn = ImPathRed.replace('Red','Grn')
+    ImPathBlu = ImPathRed.replace('Red','Blu')
+    
+    ImRed = np.genfromtxt(ImPathRed, delimiter=',')
+    ImGrn = np.genfromtxt(ImPathGrn, delimiter=',')
+    ImBlu = np.genfromtxt(ImPathBlu, delimiter=',')
+
+            
 elif load_image == '2-colour':
-        #Set filename, how many frames to be processed (the example image contains 5 frames), and if the cropped raw image is plotted.
-        filename = '100H_BG7_exp1563'
-        average = 1
-        plot_raw = True
-        
-        # Parameters defining position of flame and cropped image size
-        flame_height = 1500
-        flame_width = 401
-        HAB0 = 1614
-        
-        """
-        This function loads a tif image in raw format and crops it to the desired size. The file has to be located in the folder "Photos" 
-        and its name has to specified in 'filename'. HAB0 stands for height above burner equals zero and is the vertical pixel position of the 
-        burner exit. The cropping width and height are 'flame_height' and 'flame_width'. The flame centre line is detected automatically. 
-        It is also possible to provide a stacked tif file with multiple frames. In this case, the code searches for the flame centre lines and flame 
-        tips in each frame and averages the non-tilted ones with similar flame height.
-        
-        Note that some parameters in Get_flame might need adjustment if flames with different height or max. intensities are processed. 
-        """    
-        from Get_flame import Get_flame
-        [ImRed, ImGrn, ImBlu, ImDevRed, ImDevGrn, ImDevBlu] = Get_flame(filename, average, flame_height, HAB0, flame_width, plot_raw)
+    #Set filename, how many frames to be processed (the example image contains 5 frames), and if the cropped raw image is plotted.
+    #filename = '100H_BG7_exp1563'
+    filename = '100H_BG7_exp1563'
+    average = 5
+    plot_raw = True
+    
+    # Parameters defining position of flame and cropped image size. Please use an uneven integer for flame_width.
+    flame_height = 1500
+    flame_width = 401
+    HAB0 = 1614 #'100H_BG7_exp1563'
+    
+    """
+    This function loads a tif image in raw format and crops it to the desired size. The file has to be located in the folder "Photos" 
+    and its name has to specified in 'filename'. HAB0 stands for height above burner equals zero and is the vertical pixel position of the 
+    burner exit. The cropping width and height are 'flame_height' and 'flame_width'. The flame centre line is detected automatically. 
+    It is also possible to provide a stacked tif file with multiple frames. In this case, the code searches for the flame centre lines and flame 
+    tips in each frame and averages the non-tilted ones with similar flame height.
+    
+    Note that some parameters in Get_flame might need adjustment if flames with different height or max. intensities are processed. 
+    """    
+    from Get_flame import Get_flame
+    [ImRed, ImGrn, ImBlu, ImDevRed, ImDevGrn, ImDevBlu] = Get_flame(filename, average, flame_height, HAB0, flame_width, plot_raw)
 else: 
     sys.exit("Selected image_load option does not exist. Programme stopped")
     
@@ -112,16 +122,41 @@ elif Abel == 'FLiPPID':
     # For which z values should FLiPPID be executed? Allowed is a range (z_min, z_max) or string 'all'
     z_range = 'all'
     
-    # Define range of integral lookup table. 
-    Nx = 200
-    Nc = (-800, 1200)
-    delta_x = 0.01
-    delta_c = 0.01
+    # Select function for R to fit to the recorded data. Available are:
+    # fun1: a/(b*sqrt(pi)) * exp(c(r/b)^2-(r/b)^6)
+    # fun2: a/(b*sqrt(pi)) * exp(c(r/b)^2-(r/b)^8)
+    # fun3: a/(b*sqrt(pi)) * exp(c(r/b)^2-(r/b)^10)
+    # fun4: a/(b*sqrt(pi)) * exp(c(r/b)^2-(r/b)^12)
+    fit_fun = 'fun1'
+    
+    # Define range of integral lookup table. Nx is the range for x/b*delta_c, Nc is the range for c*delta_c.
+    if fit_fun == 'fun1':
+        Nx = 200
+        Nc = (-500, 2500)
+        delta_x = 0.01
+        delta_c = 0.01
+    elif fit_fun == 'fun2':
+        Nx = 200
+        Nc = (-500, 2500)
+        delta_x = 0.01
+        delta_c = 0.01
+    elif fit_fun == 'fun3':
+        Nx = 170
+        Nc = (-300, 2500)
+        delta_x = 0.01
+        delta_c = 0.01
+    elif fit_fun == 'fun4':
+        Nx = 170
+        Nc = (-300, 2200)
+        delta_x = 0.01
+        delta_c = 0.01
+        
+        
     if z_range == 'all':
         del z_range
         z_range=(0,len(ImRed))
         
-    [R_red, R_grn, R_blu, P_red, P_grn, P_blu, fit_out] = FLiPPID(ImRed, ImGrn, ImBlu, z_range, Nx, Nc, delta_x, delta_c) 
+    [R_red, R_grn, R_blu, P_red, P_grn, P_blu, fit_out] = FLiPPID(ImRed, ImGrn, ImBlu, z_range, Nx, Nc, delta_x, delta_c, fit_fun) 
     
     # Find maximum root mean square error.
     rmse_red_max = [ n for n,p in enumerate(fit_out[:,3,0]) if p==max(fit_out[:,3,0]) ][0]
@@ -142,7 +177,7 @@ elif Abel == 'FLiPPID':
     plt.plot(P_grn[z_range[0]+rmse_grn_max,:], '-g')
     plt.plot(P_blu[z_range[0]+rmse_blu_max,:], '-b')
     plt.title('The worst FLiPPID fits for the red, green, and blue channel')
-    plt.show()   
+    plt.show() 
 
 else: 
     sys.exit("Selected inverse Abel transform method does not exist. Programme stopped")
@@ -153,9 +188,9 @@ end = time.time()
 # Calculate colour ratios
 #------------------------------------------------------------------------------
 # Define threshold above which colour ratio will be calculated
-threshold_ratio_red = 2
-threshold_ratio_grn = 2
-threshold_ratio_blu = 2
+threshold_ratio_red = 1.4
+threshold_ratio_grn = 1.4
+threshold_ratio_blu = 1.4
 
 GoodRG = (R_grn > threshold_ratio_grn) & (R_red > threshold_ratio_red)
 GoodRB = (R_blu > threshold_ratio_blu) & (R_red > threshold_ratio_red)
@@ -193,6 +228,12 @@ if get_temperature == True:
     T_calc = np.linspace(temperature[0], temperature[1], (temperature[1]-temperature[0])+1)
     # Fit camera response to measured values of colour ratios?
     fit = True    
+    # What soot dispersion exponent (alpha) is used for soot is used? Possible are 'Chang' with lambda^-1.423 as derived from the refractive index 
+    # measurements by:
+    # Chang and Charalampopoulos, Proc. R. Soc. Lond. A 430 (1990) 577-591
+    # or 'Kuhn' for lambda^-1.38 as reported by Kuhn et al. for the same raw data:
+    # Kuhn et al., Proceedings of the Combustion Institute 33 (2011) 743-750
+    soot_coef = 'Chang'
     
     # Provide location of the colour ratio calibration file. Column 0 has to contain the measure temperature in K and
     # column 1, 2, 3 the corresponding RG, RB, and BG colour ratios. The other columns in the example file are not
@@ -216,7 +257,7 @@ if get_temperature == True:
     Kuhn et al., Proceedings of the Combustion Institute 33 (2011) 743-750
     """     
     from Temperature_lookup import Temperature_lookup
-    Ratio_tables = Temperature_lookup(filter, lam, T_calc, fit, Thermo_calib)
+    Ratio_tables = Temperature_lookup(filter, lam, T_calc, fit, Thermo_calib, soot_coef)
     
     """
     This function uses the temperature lookup table to calculate the soot temperature profiles of the flame.  
@@ -262,7 +303,8 @@ if get_volume_fraction == True and get_temperature == True:
     
     # mm for each pixel and exposure time while taking the flame images
     pixelmm = 1/34
-    exposure = 1563 
+
+    exposure = 1563 #'100H_BG7_exp1563'
     
     # Measured green singal emitted from a hot thermocouple devided by the expsoure time as a function of 
     # temperature. The equation is obtained by plotting the green counts / exposure time over temperature and 
@@ -284,12 +326,25 @@ if get_volume_fraction == True and get_temperature == True:
     plt.imshow(T_ave, vmin=1500, vmax=2000)
     plt.title('Average soot temperature [K]')
     plt.subplot(122)
-    plt.imshow(f_ave, vmin=0.05, vmax=1)
+    plt.imshow(f_ave, vmin=0.05, vmax=2.5)
     plt.title('soot volume fraction [ppm]')
     plt.show()
     
 elif get_volume_fraction == True & get_temperature == False:
     sys.exit("Soot volume fraction can only be calculated after the soot temperature is known. Set get_temperature to True and re-run the programme.")
+
+if save==True:
+    ImPathT = ImPathRed.replace('Red','T-ave')
+    ImPathfv = ImPathRed.replace('Red','fv')
+    
+    np.savetxt(ImPathT, T_ave ,delimiter=',')
+    np.savetxt(ImPathfv, f_ave ,delimiter=',')
+    
+    if 'fit_out' in locals():
+        ImPathfit = ImPathRed.replace('Red','fit_out')
+        fit_save = np.concatenate((fit_out[:,:,0], fit_out[:,:,1], fit_out[:,:,2]), axis=1)
+        np.savetxt(ImPathfit, fit_save ,delimiter=',')
+
     
 Abel_time = float("{0:.2f}".format(end-start))    
 print('{0}{1}{2}'.format('Abel inversion required', str(Abel_time), 's'))

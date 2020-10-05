@@ -11,6 +11,7 @@ def Get_flame(filename, average, flame_height, HAB0, flame_width, plot_raw):
     import numpy as np
     from skimage import io
     from os.path import abspath, exists
+    from scipy import ndimage
     
     from colour_demosaicing import (
         EXAMPLES_RESOURCES_DIRECTORY,
@@ -38,8 +39,9 @@ def Get_flame(filename, average, flame_height, HAB0, flame_width, plot_raw):
     
     # Threshold for selecting non-tilted flames with similar height
     thresh_tip = 4 
-    thresh_std = 0.8
+    thresh_std = 0.7
     
+    degree = 1.2
     
     scale = 65535
     
@@ -56,7 +58,10 @@ def Get_flame(filename, average, flame_height, HAB0, flame_width, plot_raw):
     print('Finished loading image')
     
     for i in range(0, average):
-        ImDat[:,:,i,:] = (demosaicing_CFA_Bayer_bilinear(ImDatBayer[i,:,:], 'GRBG'))
+        ImDat[:,:,i,:] = ndimage.rotate((demosaicing_CFA_Bayer_bilinear(ImDatBayer[i,:,:], 'GRBG')), degree, reshape=False)
+        print(i)
+     
+    del ImDatBayer    
     
     ImDatRed = ImDat[:,:,:,2]
     ImDatGrn = ImDat[:,:,:,1] 
@@ -78,12 +83,14 @@ def Get_flame(filename, average, flame_height, HAB0, flame_width, plot_raw):
             right[j,i] = len(ImDatGrn[0]) - [ n for n,i in enumerate(np.flip(ImDatGrn[row[i],:,j], 0)) if i>thresh_grn ][0]
             middle[j,i] = left[j,i]+(right[j,i]-left[j,i])/2
             middle_std[j] = np.std(middle[j,:])
+            print(j)
     
     tip = np.zeros(len(ImDatGrn[0][0]), dtype=int)
     
     # Find the flame tip at the flame centre
     for j in range(0,len(ImDatGrn[0][0])):
-        tip[j] = [ n for n,p in enumerate(ImDatGrn[:,int(round(np.mean(middle[j,:]))),j]) if p>thresh_grn ][0]     
+        tip[j] = [ n for n,p in enumerate(ImDatGrn[:,int(round(np.mean(middle[j,:]))),j]) if p>thresh_grn ][0]
+        print(j)
     
     print('Flame edge and tip detection finished')
     
@@ -93,7 +100,6 @@ def Get_flame(filename, average, flame_height, HAB0, flame_width, plot_raw):
     ImDatGrn_filter = np.zeros((len(ImDatRed),len(ImDatRed[0]),1))
     ImDatBlu_filter = np.zeros((len(ImDatRed),len(ImDatRed[0]),1))
     middle_filter = np.zeros((1,len(middle[0])))
-    j_good = np.zeros((len(middle[0])))
     
     # The non-tilted flames with similar height are selected.
     for j in range(0,len(ImDatGrn[0][0])):
@@ -112,11 +118,7 @@ def Get_flame(filename, average, flame_height, HAB0, flame_width, plot_raw):
                 
             G_filter = G_filter+1
     
-    # Calculate single and averaged flame images.
-    ImRed_single = ImDatRed_filter[:,:,0]
-    ImGrn_single = ImDatGrn_filter[:,:,0]
-    ImBlu_single = ImDatBlu_filter[:,:,0]
-    
+    print(G_filter)
     ImRed_filter = np.mean(ImDatRed_filter, axis=2)
     ImGrn_filter = np.mean(ImDatGrn_filter, axis=2)
     ImBlu_filter = np.mean(ImDatBlu_filter, axis=2)
@@ -130,6 +132,7 @@ def Get_flame(filename, average, flame_height, HAB0, flame_width, plot_raw):
         plt.title('Standard deviation of detected centres in each frame and the deviation threshold')
         plt.plot(middle_std, 'r')
         plt.plot(np.ones(len(ImDatGrn[0][0]))*thresh_std, 'b')
+        #set_ylim([0,thresh_std*1.2])
         plt.show()
         
         plt.figure()
@@ -141,10 +144,25 @@ def Get_flame(filename, average, flame_height, HAB0, flame_width, plot_raw):
     
     middle_crop = int(round(np.mean(np.mean(middle_filter))))
     
-    # Crop the flame images to the desired size.
-    ImRed_single_crop = ImRed_single[HAB0-flame_height:HAB0, int(middle_crop-np.round(flame_width/2)):int(middle_crop+np.round(flame_width/2))+1]
-    ImGrn_single_crop = ImGrn_single[HAB0-flame_height:HAB0, int(middle_crop-np.round(flame_width/2)):int(middle_crop+np.round(flame_width/2))+1]
-    ImBlu_single_crop = ImBlu_single[HAB0-flame_height:HAB0, int(middle_crop-np.round(flame_width/2)):int(middle_crop+np.round(flame_width/2))+1]
+    for l in range(0,len(ImDatRed_filter[0][0])):
+        # Calculate single and averaged flame images.
+        ImRed_single = ImDatRed_filter[:,:,l]
+        ImGrn_single = ImDatGrn_filter[:,:,l]
+        ImBlu_single = ImDatBlu_filter[:,:,l]
+        
+        # Crop the flame images to the desired size.
+        ImRed_single_crop = ImRed_single[HAB0-flame_height:HAB0, int(middle_crop-np.round(flame_width/2)):int(middle_crop+np.round(flame_width/2))+1]
+        ImGrn_single_crop = ImGrn_single[HAB0-flame_height:HAB0, int(middle_crop-np.round(flame_width/2)):int(middle_crop+np.round(flame_width/2))+1]
+        ImBlu_single_crop = ImBlu_single[HAB0-flame_height:HAB0, int(middle_crop-np.round(flame_width/2)):int(middle_crop+np.round(flame_width/2))+1]
+        
+        # Save the single frame processed image.
+        fsave_Red_single = abspath( '{0}{1}{2}{3}{4}'.format('Photos//Processed//', filename, '_Red_frame', str(l+1), '.csv') )
+        fsave_Grn_single = abspath( '{0}{1}{2}{3}{4}'.format('Photos//Processed//', filename, '_Grn_frame', str(l+1), '.csv') )
+        fsave_Blu_single = abspath( '{0}{1}{2}{3}{4}'.format('Photos//Processed//', filename, '_Blu_frame', str(l+1), '.csv') )
+        
+        np.savetxt(fsave_Red_single, ImRed_single_crop ,delimiter=',')
+        np.savetxt(fsave_Grn_single, ImGrn_single_crop ,delimiter=',')
+        np.savetxt(fsave_Blu_single, ImBlu_single_crop ,delimiter=',')
     
     Cropped_ImRed = ImRed_filter[HAB0-flame_height:HAB0, int(middle_crop-np.round(flame_width/2)):int(middle_crop+np.round(flame_width/2))+1]
     Cropped_ImGrn = ImGrn_filter[HAB0-flame_height:HAB0, int(middle_crop-np.round(flame_width/2)):int(middle_crop+np.round(flame_width/2))+1]
