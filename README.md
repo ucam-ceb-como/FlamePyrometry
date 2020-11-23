@@ -66,6 +66,7 @@ The function uses the theoretical camera, lens, and filter response to calculate
 The blue and red colour channels are scaled to match the theoretical and observed colour ratios after which the ratios of hot soot are calculated. Further details can be found in the following publications:
 * Ma and Long, Proceedings of the Combustion Institute 34 (2013) 3531-3539 (https://www.sciencedirect.com/science/article/pii/S1540748912000314)
 * Kuhn et al., Proceedings of the Combustion Institute 33 (2011) 743-750 (https://www.sciencedirect.com/science/article/pii/S1540748910000209)
+
 Once the code has calculated the lookup table, it is able to calculate the soot temperature profiles of the flame. 
 
 ##### Get soot volume fraction
