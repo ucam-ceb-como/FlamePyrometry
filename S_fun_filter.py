@@ -17,7 +17,8 @@ def S_fun_filter(T,l,cam_resp,lambda_first,alpha):
     c = 299792458;
 
     i=(np.round(l*10-lambda_first).astype(int))
-
-    S_red =  cam_resp[i] / ((l * 10**(-9))**(5+alpha)) / (np.exp(h*c/((l*10**(-9))*k*T))-1)
-    #S_red =  cam_resp[i] * emissivity[i] / ((l * 10**(-9))**5) / (np.exp(h*c/((l*10**(-9))*k*T))-1)
-    return (S_red)
+    
+    # See Eq. 6 in:
+    # Kempema and Long, Optics Letters 43 (2018) 1103-1106
+    S_i =  cam_resp[i] / ((l * 10**(-9))**(5+alpha)) / (np.exp(h*c/((l*10**(-9))*k*T))-1)
+    return (S_i)

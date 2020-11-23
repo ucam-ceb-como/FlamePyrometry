@@ -5,44 +5,26 @@ Created on Fri Dec 14 15:24:52 2018
 @author: jd766
 """
 
-def Get_flame(filename, average, flame_height, HAB0, flame_width, plot_raw):
-
+def Get_flame(filename, average, flame_height, HAB0, flame_width, plot_raw, thresh_tip, thresh_std, save_single):
     import matplotlib.pyplot as plt
     import numpy as np
     from skimage import io
     from os.path import abspath, exists
     from scipy import ndimage
-    
-    from colour_demosaicing import (
-        EXAMPLES_RESOURCES_DIRECTORY,
-        demosaicing_CFA_Bayer_bilinear,
-        demosaicing_CFA_Bayer_Malvar2004,
-        demosaicing_CFA_Bayer_Menon2007,
-        mosaicing_CFA_Bayer)
+    import cv2
     
     """
     If the automatic flame centre and edge detection fails check the below values, i.e., the thresholds for edge and tip detection, 
     the selection criteria for straight flames with similar height, and the number and positions where flame centres are searched
     """
     
-    # Number of lines where the centre is detected
-    centres=63
+    # Threshold for the tip detection
+    thresh_grn  = 2000
     
-    # First z to check for centres
-    z1 = 614
+    # It is possible to rotate slightly tilded flame images
+    degree = 0
     
-    # Spacing in z where centre is searched
-    z_check = 10
-    
-    # Threshold for the edge and tip detection
-    thresh_red = thresh_grn = thresh_blu = 2000
-    
-    # Threshold for selecting non-tilted flames with similar height
-    thresh_tip = 4 
-    thresh_std = 0.7
-    
-    degree = 1.2
-    
+    # Max. intensity count of the camera
     scale = 65535
     
     # Read raw image in Bayer formate from
@@ -51,14 +33,19 @@ def Get_flame(filename, average, flame_height, HAB0, flame_width, plot_raw):
     
     ImDatBayer = np.zeros((average, len(ImDatBayer_all[0]), len(ImDatBayer_all[0][0])))
     ImDat = np.zeros(((len(ImDatBayer[0]), len(ImDatBayer[0][0]), average, 3) ) ) 
-            
+    
+    # Only take 'average' frames from the stack        
     ImDatBayer = ImDatBayer_all[0:average,:,:]
     del ImDatBayer_all
     
     print('Finished loading image')
     
+    # Demosaic the image. Different algorithms can be used: COLOR_BayerGB2RGB, COLOR_BayerGB2RGB_EA, COLOR_BayerGB2RGB_VNG. Note that 
+    # COLOR_BayerRG2RGB_VNG requires a 8 bit image. In case the camera has a different Bayer pattern the 'BayerGR' has to be replaced by the appropiate
+    # pattern. Actually, the BlackflyS used for the example image has a BayerRG pattern but the raw image was rotated by 90 degrees such that the flame is 
+    # vertical.
     for i in range(0, average):
-        ImDat[:,:,i,:] = ndimage.rotate((demosaicing_CFA_Bayer_bilinear(ImDatBayer[i,:,:], 'GRBG')), degree, reshape=False)
+        ImDat[:,:,i,:] = ndimage.rotate((cv2.cvtColor(ImDatBayer[i,:,:], cv2.COLOR_BayerGB2RGB_EA)), degree, reshape=False)
         print(i)
      
     del ImDatBayer    
@@ -66,31 +53,48 @@ def Get_flame(filename, average, flame_height, HAB0, flame_width, plot_raw):
     ImDatRed = ImDat[:,:,:,2]
     ImDatGrn = ImDat[:,:,:,1] 
     ImDatBlu = ImDat[:,:,:,0]  
-    del ImDat      
+          
     print('Finished demosaicing image')
     
-    row = np.zeros(centres, dtype=int)
-    middle_std = np.zeros(len(ImDatGrn[0][0]))
-    left = np.zeros([len(ImDatGrn[0][0]),centres], dtype=int)
-    right = np.zeros([len(ImDatGrn[0][0]),centres], dtype=int)
-    middle = np.zeros([len(ImDatGrn[0][0]),centres], dtype=int)
+    left = np.zeros([len(ImDatGrn[0][0]), len(ImDatGrn)], dtype=int)
+    right = np.zeros([len(ImDatGrn[0][0]), len(ImDatGrn)], dtype=int)
+    middle = np.zeros([len(ImDatGrn[0][0]), len(ImDatGrn)])
+    middle_std = np.zeros([len(ImDatGrn[0][0])])
     
     # Find left and right flame edge to calculate the flame centre at different pixel rows
     for j in range(0,len(ImDatGrn[0][0])):
-        for i in range(0,centres):
-            row[i] = HAB0 - z1 - (i+1)*z_check
-            left[j,i] = [ n for n,p in enumerate(ImDatGrn[row[i],:,j]) if p>thresh_grn ][0]
-            right[j,i] = len(ImDatGrn[0]) - [ n for n,i in enumerate(np.flip(ImDatGrn[row[i],:,j], 0)) if i>thresh_grn ][0]
-            middle[j,i] = left[j,i]+(right[j,i]-left[j,i])/2
-            middle_std[j] = np.std(middle[j,:])
-            print(j)
+        gray = cv2.cvtColor(np.uint8(ImDat[:,:,j,:]/scale*255), cv2.COLOR_RGB2GRAY)
+        th_gray = cv2.adaptiveThreshold(gray,1,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,\
+                    cv2.THRESH_BINARY,85,6)
+        
+        for i in range(0,len(ImDatGrn)):
+            left[j,i] = np.argmax(th_gray[i,:]<0.5)
+            right[j,i] = len(ImDatGrn[0]) - np.argmax(np.flip(th_gray[i,:],0)<0.5) - 1
+            
+        # Remove the noisy top and bottom part of the flame    
+        left[j,0:np.argmax(left[j,:]>0)+20] = 0
+        left[j,len(left[0]) - np.argmax(np.flip(left[j,:])>0)-50:-1] = 0
+        
+        middle[j,:] = (left[j,:] + right[j,:])/2 * (left[j,:]!=0) * (right[j,:]!=len(ImDatGrn[0])-1)
+        middle_std[j] = np.std(middle[j,middle[j,:]!=0])
+    
+    del ImDat
+    
+    # Plot some centrelines
+#    plt.figure()
+#    plt.plot(middle[0,:])
+#    plt.plot(middle[1,:])
+#    plt.plot(middle[2,:])
+#    plt.plot(middle[3,:])
+#    plt.ylim((np.min(middle[middle!=0])-10,np.max(middle)+10))
+#    plt.xlim((np.argmax(middle[0,:]>0)-10 , len(left[0]) - np.argmax(np.flip(middle[0,:])>0)+10))
+#    plt.show()
     
     tip = np.zeros(len(ImDatGrn[0][0]), dtype=int)
     
     # Find the flame tip at the flame centre
     for j in range(0,len(ImDatGrn[0][0])):
-        tip[j] = [ n for n,p in enumerate(ImDatGrn[:,int(round(np.mean(middle[j,:]))),j]) if p>thresh_grn ][0]
-        print(j)
+        tip[j] = np.argmax(ImDatGrn[:,int(round(np.mean(middle[j,np.nonzero(middle[j,:])]))),j]>thresh_grn)
     
     print('Flame edge and tip detection finished')
     
@@ -118,7 +122,7 @@ def Get_flame(filename, average, flame_height, HAB0, flame_width, plot_raw):
                 
             G_filter = G_filter+1
     
-    print(G_filter)
+    print('{0}{1}{2}'.format('After the flame centre and edge detection, ', G_filter, ' frames remained and were averaged.'))
     ImRed_filter = np.mean(ImDatRed_filter, axis=2)
     ImGrn_filter = np.mean(ImDatGrn_filter, axis=2)
     ImBlu_filter = np.mean(ImDatBlu_filter, axis=2)
@@ -142,7 +146,7 @@ def Get_flame(filename, average, flame_height, HAB0, flame_width, plot_raw):
         plt.plot(np.ones(len(ImDatGrn[0][0]))*(ave_tip-thresh_tip),'g--')
         plt.show()
     
-    middle_crop = int(round(np.mean(np.mean(middle_filter))))
+    middle_crop = int(round(np.mean(np.mean(middle_filter[middle_filter!=0]))))
     
     for l in range(0,len(ImDatRed_filter[0][0])):
         # Calculate single and averaged flame images.
@@ -155,14 +159,15 @@ def Get_flame(filename, average, flame_height, HAB0, flame_width, plot_raw):
         ImGrn_single_crop = ImGrn_single[HAB0-flame_height:HAB0, int(middle_crop-np.round(flame_width/2)):int(middle_crop+np.round(flame_width/2))+1]
         ImBlu_single_crop = ImBlu_single[HAB0-flame_height:HAB0, int(middle_crop-np.round(flame_width/2)):int(middle_crop+np.round(flame_width/2))+1]
         
-        # Save the single frame processed image.
-        fsave_Red_single = abspath( '{0}{1}{2}{3}{4}'.format('Photos//Processed//', filename, '_Red_frame', str(l+1), '.csv') )
-        fsave_Grn_single = abspath( '{0}{1}{2}{3}{4}'.format('Photos//Processed//', filename, '_Grn_frame', str(l+1), '.csv') )
-        fsave_Blu_single = abspath( '{0}{1}{2}{3}{4}'.format('Photos//Processed//', filename, '_Blu_frame', str(l+1), '.csv') )
-        
-        np.savetxt(fsave_Red_single, ImRed_single_crop ,delimiter=',')
-        np.savetxt(fsave_Grn_single, ImGrn_single_crop ,delimiter=',')
-        np.savetxt(fsave_Blu_single, ImBlu_single_crop ,delimiter=',')
+        if save_single == True:
+            # Save the single frame processed image.
+            fsave_Red_single = abspath( '{0}{1}{2}{3}{4}'.format('Photos//Processed//', filename, '_Red_frame', str(l+1), '.csv') )
+            fsave_Grn_single = abspath( '{0}{1}{2}{3}{4}'.format('Photos//Processed//', filename, '_Grn_frame', str(l+1), '.csv') )
+            fsave_Blu_single = abspath( '{0}{1}{2}{3}{4}'.format('Photos//Processed//', filename, '_Blu_frame', str(l+1), '.csv') )
+            
+            np.savetxt(fsave_Red_single, ImRed_single_crop ,delimiter=',')
+            np.savetxt(fsave_Grn_single, ImGrn_single_crop ,delimiter=',')
+            np.savetxt(fsave_Blu_single, ImBlu_single_crop ,delimiter=',')
     
     Cropped_ImRed = ImRed_filter[HAB0-flame_height:HAB0, int(middle_crop-np.round(flame_width/2)):int(middle_crop+np.round(flame_width/2))+1]
     Cropped_ImGrn = ImGrn_filter[HAB0-flame_height:HAB0, int(middle_crop-np.round(flame_width/2)):int(middle_crop+np.round(flame_width/2))+1]
@@ -181,10 +186,12 @@ def Get_flame(filename, average, flame_height, HAB0, flame_width, plot_raw):
     ImDevBlu = Cropped_ImDevBlu
     
     middle_line = np.zeros(2)
-    row_plot = row-(HAB0-flame_height)
-    left_plot = np.mean(left-(middle_crop-np.floor(flame_width/2)), axis=0)
-    right_plot = np.mean(right-(middle_crop-np.floor(flame_width/2)), axis=0);
-    middle_plot = np.mean(middle_filter-(middle_crop-np.floor(flame_width/2)), axis=0);
+    left_plot = (np.mean(left, axis=0)-(middle_crop-np.floor(flame_width/2)))*np.min(left!=0,axis=0)*np.min(right!=len(ImDatGrn[0])-1,axis=0)
+    right_plot = (np.mean(right, axis=0)-(middle_crop-np.floor(flame_width/2)))*np.min(right!=len(ImDatGrn[0])-1,axis=0)*np.min(left!=0,axis=0)
+    middle_plot = (np.mean(middle_filter, axis=0)-(middle_crop-np.floor(flame_width/2)))*np.min(right!=len(ImDatGrn[0])-1,axis=0)*np.min(left!=0,axis=0)
+    
+    row_plot = np.linspace(0,len(ImDatGrn),len(ImDatGrn))-(HAB0-flame_height)
+    
     middle_line[0] = middle_crop-(middle_crop-(flame_width/2))
     middle_line[1] = middle_line[0]
     
@@ -196,7 +203,6 @@ def Get_flame(filename, average, flame_height, HAB0, flame_width, plot_raw):
     np.savetxt(fsave_Red, ImRed ,delimiter=',')
     np.savetxt(fsave_Grn, ImGrn ,delimiter=',')
     np.savetxt(fsave_Blu, ImBlu ,delimiter=',')
-    
         
     if plot_raw==True:
         plt.figure()
@@ -206,10 +212,10 @@ def Get_flame(filename, average, flame_height, HAB0, flame_width, plot_raw):
         plt.subplot(132)
         plt.imshow(ImGrn, vmin=0, vmax=scale)
         plt.title('Original green channel intensity and detected centre line')
-        plt.plot(left_plot,row_plot,'r')
-        plt.plot(right_plot,row_plot,'r')
-        plt.plot(middle_plot,row_plot,'xr')
-        plt.plot(middle_line,[row_plot[0], row_plot[-1]],'r')
+        plt.plot(left_plot[left_plot!=0],row_plot[left_plot!=0],'r')
+        plt.plot(right_plot[left_plot!=0],row_plot[left_plot!=0],'r')
+        plt.plot(middle_plot[left_plot!=0],row_plot[left_plot!=0],'xy')
+        plt.plot(middle_line,[row_plot[np.argmax(left_plot>0)]-50, row_plot[len(left_plot) - np.argmax(np.flip(left_plot)>0)]+50],'r')
         plt.subplot(133)
         plt.imshow(ImBlu, vmin=0, vmax=scale)
         plt.title('Original blue channel intensity')

@@ -43,18 +43,21 @@ def Temperature_lookup(filter, lam, T_calc, fit, Thermo_calib, soot_coef):
         
         lambda_first = (lam[0]*10)
         
-        # Emission source is set soot
+        # Absorption coefficient for soot is selected
         if soot_coef=='Chang':
-            alpha_soot = 1.423#(lam*1e-3)**(-1.38)
-            #emissivity_soot = 1.38#(lam*1e-3)**(-1.38)
+            alpha_soot = 1.423
         elif soot_coef=='Kuhn':
-            alpha_soot = 1.38#(lam*1e-3)**(-0.785)
+            alpha_soot = 1.38
         else:
             sys.exit("Chosen soot emissivity not found. Please set soot_coef to available values.")
             
-        # Functions to calculate the colour ratios
-        alpha_thermo = 0.641#(1.2018e-6 * lam**2 - 1.7167e-3 * lam + 0.9017)
-        #emissivity_thermo = 0.641#(1.2018e-6 * lam**2 - 1.7167e-3 * lam + 0.9017)
+        # Absorption coefficient for the calibration source is set. Note that Ma and Long report a polynomial for the wavelength dependent emissivity
+        # of an S-type thermocouple:
+        # 1.2018e-6 * lam**2 - 1.7167e-3 * lam + 0.9017
+        # Here, the raw data reported by Ma and Long was fitted with a power law function to obtain the absorption coefficient rather than a polynomial 
+        # function for the wavelength dependent emissivity. This simplifies the subsequent calculations and makes it consistent with the parameters used
+        # for soot.
+        alpha_thermo = 0.641
         
         # Get raw camera response
         blackfly_red = pd.read_csv('Filters/Blackfly_response_red.csv', delimiter=',', header=None).values
@@ -79,7 +82,6 @@ def Temperature_lookup(filter, lam, T_calc, fit, Thermo_calib, soot_coef):
                 
                 
         elif filter == 'FGB7':
-                #Thermo_calib = pd.read_csv('Temperature_tables/Measured_R_Thermo_FGB7.csv', delimiter=',', header=None).values
                 FGB7_raw = pd.read_csv('Filters/FGB7.csv', delimiter=',', header=None).values
                 lens_raw = pd.read_csv('Filters/MVL25M23.csv', delimiter=',', header=None).values
                 camera_filter = griddata(FGB7_raw[:,0], FGB7_raw[:,1], (lam), method='cubic') / 100
@@ -89,7 +91,6 @@ def Temperature_lookup(filter, lam, T_calc, fit, Thermo_calib, soot_coef):
                 blu_filter = blu_nofilter * camera_filter * camera_lens   
                 
         elif filter == 'FGB39':
-                #Thermo_calib = pd.read_csv('Temperature_tables/Measured_S_Thermo_FGB39.csv', delimiter=',', header=None).values
                 FGB39_raw = pd.read_csv('Filters/FGB39.csv', delimiter=',', header=None).values
                 lens_raw = pd.read_csv('Filters/MVL25M23.csv', delimiter=',', header=None).values
                 camera_filter = griddata(FGB39_raw[:,0], FGB39_raw[:,1], (lam), method='cubic') / 100
@@ -101,7 +102,7 @@ def Temperature_lookup(filter, lam, T_calc, fit, Thermo_calib, soot_coef):
         else:
             sys.exit("Selected camera filter does not exist. Programme stopped")
         
-        # Measured R-type thermocouple response
+        # Measured R-type/S-type thermocouple response
         T_measure = Thermo_calib[:,0]
         RG_measure = Thermo_calib[:,1]
         RB_measure = Thermo_calib[:,2]
@@ -121,7 +122,10 @@ def Temperature_lookup(filter, lam, T_calc, fit, Thermo_calib, soot_coef):
         
         lambda_max = np.zeros((len(T_calc)))
         
-        # Calculate theo. colour ratios as function of temperature for thermocouple
+        # Calculate theo. colour ratios as function of temperature for thermocouple. The applied equations correspond to Eq. 6 in:
+        # Kempema and Long, Optics Letters 43 (2018) 1103-1106
+        # Note that the same equation is reported using the emissivity instead of the absorption coefficient. The absorption coefficient is used here
+        # because emissivity is defined for surfaces, not an aerosol with soot nanoparticles. However, both version will give the same result.
         for T in range(0, len(T_measure)):
             fun_R_thermo[T] = integrate.quad(lambda l: S_fun_filter(T_measure[T],l,red_filter,lambda_first,alpha_thermo), lam[0], lam[-1], maxp1=200, limit=200)[0]
             fun_G_thermo[T] = integrate.quad(lambda l: S_fun_filter(T_measure[T],l,grn_filter,lambda_first,alpha_thermo), lam[0], lam[-1], maxp1=200, limit=200)[0]
@@ -173,8 +177,7 @@ def Temperature_lookup(filter, lam, T_calc, fit, Thermo_calib, soot_coef):
                 lambda_max[T] = lam[I_max]
                
         elif fit == False:
-            # If no data fitting calculate colour ratios with data provided by
-            # camera and filter manufacturer
+            # If no data fitting is requested, calculate colour ratios with data provided by the camera and filter manufacturer.
             
             # Calculate theo. response of camera for soot
             for T in range(0, len(T_calc)):

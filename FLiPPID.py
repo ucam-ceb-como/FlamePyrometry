@@ -110,7 +110,16 @@ def FLiPPID(ImRed, ImGrn, ImBlu, z_range, Nx, Nc, delta_x, delta_c, fit_fun):
         return (2*a / (np.pi**0.5)) * np.exp(I_int(x,b,c)) 
     # Define function to calculate R
     def R_eval(x,a,b,c):
-        return ( (a / (b * np.pi**0.5)) * np.exp(c * (x/b)**2 - (x/b)**6 ) )
+        if fit_fun=='fun1':
+            return ( (a / (b * np.pi**0.5)) * np.exp(c * (x/b)**2 - (x/b)**6 ) )
+        elif fit_fun=='fun2':
+            return ( (a / (b * np.pi**0.5)) * np.exp(c * (x/b)**2 - (x/b)**8 ) )
+        elif fit_fun=='fun3':
+            return ( (a / (b * np.pi**0.5)) * np.exp(c * (x/b)**2 - (x/b)**10 ) )
+        elif fit_fun=='fun4':
+            return ( (a / (b * np.pi**0.5)) * np.exp(c * (x/b)**2 - (x/b)**12 ) )
+        else:
+            sys.exit("Selected fitting function is not defined. Please choose one of the available functions for fit_fun.")
     
     # Define objective  function for the minimisation
     def RMSE(a,b):
