@@ -17,11 +17,11 @@ Depending on the selections made, other functions are called. More detailed desc
 Please note that calibration files for the experimental setup are required. Examples are provided (see 'useful links' below) but these will only give meaningful results for the optical system used to record the example image. 
 
 Different functions perform the inverse Abel transform of the recorded image. Equations and descriptions of the BASEX, onion peeling, 3-point, and Fast Hangel (Hansen-Law) methods can be found in the following publications:
-Apostolopoulos et al., Optics Communications 296 (2013) 25–34
-Dribinski et al., Review of Scientific Instruments 73 (2002) 2634-2642
-Dasch, Applied Optics 31 (1992) 1146-1152
-Daun et al., Applied Optics 45 (2006) 4638-4646
-Hansen and Law, Journal of the Optical Society of America A 2 (1985) 510-520
+* Apostolopoulos et al., Optics Communications 296 (2013) 25–34
+* Dribinski et al., Review of Scientific Instruments 73 (2002) 2634-2642
+* Dasch, Applied Optics 31 (1992) 1146-1152
+* Daun et al., Applied Optics 45 (2006) 4638-4646
+* Hansen and Law, Journal of the Optical Society of America A 2 (1985) 510-520
 
 The FLiPPID method enables smooth reconstruction of flame cross sections, even close to the flame center line, where other methods struggle. 
 
@@ -63,17 +63,14 @@ You need to provide the location of the colour ratio calibration file. You can f
 In this example, the other columns in the file are not required but show the exposure times and counts of the red, green, and blue channel. Dividing column 6 (green counts) by column 4 (exposure time) and plotting the result over column 0 (temperature) leads to the power law function as required for the soot volume fractions.
 The code can calculate the temperature lookup table, i.e., a table of the colour ratios expected to be recorded by the camera as a function of the soot temperature. 
 The function uses the theoretical camera, lens, and filter response to calculate colour ratios of a hot thermocouple and compares it to experimentally measured values. 
-the blue and red colour channels are scaled to match the theoretical and observed colour ratios after which the ratios of hot soot are calculated. Further details can be found in the following publications:
-Ma and Long, Proceedings of the Combustion Institute 34 (2013) 3531-3539 (https://www.sciencedirect.com/science/article/pii/S1540748912000314)
-Kuhn et al., Proceedings of the Combustion Institute 33 (2011) 743-750 (https://www.sciencedirect.com/science/article/pii/S1540748910000209)
+The blue and red colour channels are scaled to match the theoretical and observed colour ratios after which the ratios of hot soot are calculated. Further details can be found in the following publications:
+* Ma and Long, Proceedings of the Combustion Institute 34 (2013) 3531-3539 (https://www.sciencedirect.com/science/article/pii/S1540748912000314)
+* Kuhn et al., Proceedings of the Combustion Institute 33 (2011) 743-750 (https://www.sciencedirect.com/science/article/pii/S1540748910000209)
 Once the code has calculated the lookup table, it is able to calculate the soot temperature profiles of the flame. 
 
 ##### Get soot volume fraction
 
-The code includes the function to calculate the soot volume fraction using the previously calculated soot temperatures, the recorded light intensity, the exposure time used while imaging the flame, and the camera calibration. Further details can be found in the following 
-publications:
-Ma and Long, Proceedings of the Combustion Institute 34 (2013) 3531-3539
-Kuhn et al., Proceedings of the Combustion Institute 33 (2011) 743-750  
+The code includes the function to calculate the soot volume fraction using the previously calculated soot temperatures, the recorded light intensity, the exposure time used while imaging the flame, and the camera calibration. Further details can be found in Ma and Long (2013) and Kuhn et al. (2011).
 
 You need to update the 'pixelmm value' and 'exposure'. 'pixelmm' is the mm for each pixel and 'exposure' corresponds to the exposure time used while taking the flame images.
 To correlate the exposure time with the temperature you need a function. This function can be obtained form the measured green signal emitted from a hot thermocouple divided by the exposure time as a function of temperature. The equation is obtained by plotting the green counts / exposure time over temperature and fitting a power law function to it.
