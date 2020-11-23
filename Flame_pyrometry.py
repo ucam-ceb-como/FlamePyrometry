@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 This python code was developed to calculate soot temperatures and volume fractions of co-flow diffusion flames using colour ratio pyrometry. 
-Details of the code can be found in the CoMo c4e preprint 217 (https://como.cheng.cam.ac.uk/index.php?Page=Preprints&No=217) and in the 
+Details of the code can be found in the CoMo c4e preprint 217 (https://como.ceb.cam.ac.uk/preprints/217/) and in the 
 manuscript Dreyer et al., Applied Optics 58 (2019) 2662-2670 (https://doi.org/10.1364/AO.58.002662). Please cite these sources when using this code.
 
 The code uses a newly developed Abel inversion method for reconstructing flame cross-section intensities from their 2D projections recorded
