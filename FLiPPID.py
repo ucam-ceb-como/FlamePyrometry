@@ -192,7 +192,7 @@ def FLiPPID(ImRed, ImGrn, ImBlu, z_range, Nx, Nc, delta_x, delta_c, fit_fun):
                     a = array[0]
                     b = array[1]
                     c = array[2]
-                    x_set = np.arange(-200,201,1)   
+                    x_set = np.arange( -(len(ImGrn[0])-1)/2, (len(ImGrn[0])+1)/2 , 1)
                     P_fit = [P_eval(x,a,b,c) for x in x_set]
                     return RMSE(P_data,P_fit)
                 
@@ -283,7 +283,7 @@ def FLiPPID(ImRed, ImGrn, ImBlu, z_range, Nx, Nc, delta_x, delta_c, fit_fun):
                     a = array[0]
                     b = array[1]
                     c = array[2]
-                    x_set = np.arange(-200,201,1)   
+                    x_set = np.arange( -(len(ImGrn[0])-1)/2, (len(ImGrn[0])+1)/2 , 1)
                     P_fit = [P_eval(x,a,b,c) for x in x_set]
                     return RMSE(P_data,P_fit)
            
